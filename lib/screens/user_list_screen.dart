@@ -1,9 +1,13 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'dart:io';
 import 'package:intl/intl.dart';
 import '../database/database_helper.dart';
 import '../models/user_model.dart';
 import 'add_user_screen.dart';
+import 'package:font_awesome_flutter/font_awesome_flutter.dart';
+import 'package:url_launcher/url_launcher.dart';
+import 'package:share_plus/share_plus.dart';
 
 class UserListScreen extends StatefulWidget {
   @override
@@ -17,6 +21,7 @@ class _UserListScreenState extends State<UserListScreen> {
   TextEditingController _searchController = TextEditingController();
   String _selectedGender = 'All';
   bool _isSortedAZ = false;
+  bool _isSortedZA = false;
   int? _filterAge;
   DateTime? _filterDOB;
 
@@ -62,16 +67,29 @@ class _UserListScreenState extends State<UserListScreen> {
         if (a.isFavorite != b.isFavorite) {
           return b.isFavorite - a.isFavorite;
         }
-        return _isSortedAZ
-            ? a.name.toLowerCase().compareTo(b.name.toLowerCase())
-            : b.name.toLowerCase().compareTo(a.name.toLowerCase());
+        if (_isSortedAZ) {
+          return a.name.toLowerCase().compareTo(b.name.toLowerCase());
+        }
+        if (_isSortedZA) {
+          return b.name.toLowerCase().compareTo(a.name.toLowerCase());
+        }
+        return 0;
       });
     });
   }
 
-  void _toggleSortOrder() {
+  void _toggleSortOrderAZ() {
     setState(() {
       _isSortedAZ = !_isSortedAZ;
+      _isSortedZA = false;
+      _sortUsers();
+    });
+  }
+
+  void _toggleSortOrderZA() {
+    setState(() {
+      _isSortedZA = !_isSortedZA;
+      _isSortedAZ = false;
       _sortUsers();
     });
   }
@@ -91,11 +109,18 @@ class _UserListScreenState extends State<UserListScreen> {
                   trailing: Checkbox(
                     value: _isSortedAZ,
                     onChanged: (bool? value) {
-                      setState(() {
-                        _isSortedAZ = value ?? false;
-                        _sortUsers();
-                        Navigator.of(context).pop();
-                      });
+                      _toggleSortOrderAZ();
+                      Navigator.of(context).pop();
+                    },
+                  ),
+                ),
+                ListTile(
+                  title: Text('Sort by Name (Z-A)'),
+                  trailing: Checkbox(
+                    value: _isSortedZA,
+                    onChanged: (bool? value) {
+                      _toggleSortOrderZA();
+                      Navigator.of(context).pop();
                     },
                   ),
                 ),
@@ -150,6 +175,7 @@ class _UserListScreenState extends State<UserListScreen> {
               onPressed: () {
                 setState(() {
                   _isSortedAZ = false;
+                  _isSortedZA = false;
                   _filterAge = null;
                   _filterDOB = null;
                   _filterUsers();
@@ -194,6 +220,99 @@ class _UserListScreenState extends State<UserListScreen> {
     _fetchUsers(); // Refresh user list
   }
 
+  void _confirmDeleteUser(int userId) {
+    showDialog(
+      context: context,
+      builder: (BuildContext context) {
+        return AlertDialog(
+          title: Text('Confirm Deletion'),
+          content: Text('Are you sure you want to delete this user?'),
+          actions: [
+            TextButton(
+              child: Text('Cancel'),
+              onPressed: () {
+                Navigator.of(context).pop();
+              },
+            ),
+            TextButton(
+              child: Text('Delete'),
+              onPressed: () {
+                Navigator.of(context).pop();
+                _deleteUser(userId);
+              },
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  // Added new method to share user details using a custom dialog
+  void _shareUser(User user) {
+    final String dobString = DateFormat('dd/MM/yyyy').format(
+        DateTime.now().subtract(Duration(days: 365 * user.age)));
+
+    String shareText = """
+Contact Details:
+Name: ${user.name}
+Email: ${user.email}
+Mobile: ${user.mobile}
+Date of Birth: $dobString
+City: ${user.city}
+Gender: ${user.gender}
+""";
+
+    // Show a sharing dialog with options
+    showDialog(
+      context: context,
+      builder: (BuildContext context) {
+        return AlertDialog(
+          title: Text("Share ${user.name}'s Details"),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              ListTile(
+                leading: Icon(Icons.copy),
+                title: Text('Copy to Clipboard'),
+                onTap: () {
+                  Clipboard.setData(ClipboardData(text: shareText));
+                  Navigator.of(context).pop();
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(
+                      content: Text('Contact details copied to clipboard'),
+                      duration: Duration(seconds: 2),
+                    ),
+                  );
+                },
+              ),
+              ListTile(
+                leading: Icon(Icons.share),
+                title: Text('Other Sharing Options'),
+                onTap: () {
+                  Navigator.of(context).pop();
+                  _showShareOptions(shareText, user);
+                },
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(
+              child: Text('Cancel'),
+              onPressed: () {
+                Navigator.of(context).pop();
+              },
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  // Helper methods for sharing
+  void _showShareOptions(String text, User user) {
+    Share.share(text);
+  }
+
   void _toggleFavorite(User user) async {
     await _dbHelper.toggleFavorite(user.id!);
     setState(() {
@@ -233,6 +352,13 @@ class _UserListScreenState extends State<UserListScreen> {
               onPressed: () {
                 Navigator.of(context).pop(); // Close the dialog
                 _editUser(user); // Navigate to edit user
+              },
+            ),
+            TextButton(
+              child: Text('Share'),
+              onPressed: () {
+                Navigator.of(context).pop(); // Close the dialog
+                _shareUser(user); // Share user details
               },
             ),
             TextButton(
@@ -371,6 +497,7 @@ class _UserListScreenState extends State<UserListScreen> {
                             ),
                             onPressed: () => _toggleFavorite(user),
                           ),
+
                           PopupMenuButton<String>(
                             onSelected: (String value) {
                               switch (value) {
@@ -378,12 +505,15 @@ class _UserListScreenState extends State<UserListScreen> {
                                   _editUser(user);
                                   break;
                                 case 'delete':
-                                  _deleteUser(user.id!);
+                                  _confirmDeleteUser(user.id!);
+                                  break;
+                                case 'share':
+                                  _shareUser(user);
                                   break;
                               }
                             },
                             itemBuilder: (BuildContext context) {
-                              return {'Edit', 'Delete'}.map((String choice) {
+                              return {'Edit', 'Delete', 'Share'}.map((String choice) {
                                 return PopupMenuItem<String>(
                                   value: choice.toLowerCase(),
                                   child: Text(choice),
