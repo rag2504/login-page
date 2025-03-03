@@ -5,6 +5,7 @@ import 'package:intl/intl.dart';
 import '../database/database_helper.dart';
 import '../models/user_model.dart';
 import 'add_user_screen.dart';
+import 'user_detail_screen.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:share_plus/share_plus.dart';
@@ -247,7 +248,6 @@ class _UserListScreenState extends State<UserListScreen> {
     );
   }
 
-  // Added new method to share user details using a custom dialog
   void _shareUser(User user) {
     final String dobString = DateFormat('dd/MM/yyyy').format(
         DateTime.now().subtract(Duration(days: 365 * user.age)));
@@ -327,50 +327,14 @@ Gender: ${user.gender}
     _sortUsers();
   }
 
-  void _showUserDetails(User user) {
-    showDialog(
-      context: context,
-      builder: (BuildContext context) {
-        return AlertDialog(
-          title: Text(user.name),
-          content: SingleChildScrollView(
-            child: ListBody(
-              children: <Widget>[
-                if (user.profileImagePath != null)
-                  Image.file(File(user.profileImagePath!)),
-                Text('Email: ${user.email}'),
-                Text('Mobile: ${user.mobile}'),
-                Text('Date of Birth: ${DateFormat('dd/MM/yyyy').format(DateTime.now().subtract(Duration(days: 365 * user.age)))}'),
-                Text('City: ${user.city}'),
-                Text('Gender: ${user.gender}'),
-              ],
-            ),
-          ),
-          actions: <Widget>[
-            TextButton(
-              child: Text('Edit'),
-              onPressed: () {
-                Navigator.of(context).pop(); // Close the dialog
-                _editUser(user); // Navigate to edit user
-              },
-            ),
-            TextButton(
-              child: Text('Share'),
-              onPressed: () {
-                Navigator.of(context).pop(); // Close the dialog
-                _shareUser(user); // Share user details
-              },
-            ),
-            TextButton(
-              child: Text('Close'),
-              onPressed: () {
-                Navigator.of(context).pop(); // Close the dialog
-              },
-            ),
-          ],
-        );
-      },
+  void _navigateToUserDetailScreen(User user) async {
+    bool? userEdited = await Navigator.push(
+      context,
+      MaterialPageRoute(builder: (context) => UserDetailScreen(user: user)),
     );
+    if (userEdited == true) {
+      _fetchUsers(); // Refresh user list
+    }
   }
 
   @override
@@ -484,7 +448,14 @@ Gender: ${user.gender}
                       ),
                       title: Padding(
                         padding: const EdgeInsets.only(bottom: 8.0),
-                        child: Text(user.name),
+                        child: Row(
+                          children: [
+                            Text(user.name),
+                            SizedBox(width: 5),
+                            if (user.isEmailVerified)
+                              Icon(Icons.verified, color: Colors.green, size: 20),
+                          ],
+                        ),
                       ),
                       subtitle: Text(user.city),
                       trailing: Wrap(
@@ -510,10 +481,13 @@ Gender: ${user.gender}
                                 case 'share':
                                   _shareUser(user);
                                   break;
+                                case 'details':
+                                  _navigateToUserDetailScreen(user);
+                                  break;
                               }
                             },
                             itemBuilder: (BuildContext context) {
-                              return {'Edit', 'Delete', 'Share'}.map((String choice) {
+                              return {'Edit', 'Delete', 'Share', 'Details'}.map((String choice) {
                                 return PopupMenuItem<String>(
                                   value: choice.toLowerCase(),
                                   child: Text(choice),
@@ -523,7 +497,7 @@ Gender: ${user.gender}
                           ),
                         ],
                       ),
-                      onTap: () => _showUserDetails(user),
+                      onTap: () => _navigateToUserDetailScreen(user),
                     ),
                   );
                 },

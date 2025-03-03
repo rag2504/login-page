@@ -7,10 +7,11 @@ class User {
   String city;
   String gender;
   String password;
-  String? profileImagePath;
   int isFavorite;
+  String? profileImagePath;
   String? otp;
   int? otpExpiration;
+  bool isEmailVerified;
 
   User({
     this.id,
@@ -21,10 +22,11 @@ class User {
     required this.city,
     required this.gender,
     required this.password,
-    this.profileImagePath,
     this.isFavorite = 0,
+    this.profileImagePath,
     this.otp,
     this.otpExpiration,
+    this.isEmailVerified = false,
   });
 
   Map<String, dynamic> toMap() {
@@ -37,14 +39,15 @@ class User {
       'city': city,
       'gender': gender,
       'password': password,
-      'profileImagePath': profileImagePath,
       'isFavorite': isFavorite,
+      'profileImagePath': profileImagePath,
       'otp': otp,
       'otpExpiration': otpExpiration,
+      'isEmailVerified': isEmailVerified ? 1 : 0,
     };
   }
 
-  factory User.fromMap(Map<String, dynamic> map) {
+  static User fromMap(Map<String, dynamic> map) {
     return User(
       id: map['id'],
       name: map['name'],
@@ -54,10 +57,11 @@ class User {
       city: map['city'],
       gender: map['gender'],
       password: map['password'],
-      profileImagePath: map['profileImagePath'],
       isFavorite: map['isFavorite'],
+      profileImagePath: map['profileImagePath'],
       otp: map['otp'],
       otpExpiration: map['otpExpiration'],
+      isEmailVerified: map['isEmailVerified'] == 1,
     );
   }
 }

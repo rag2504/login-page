@@ -22,7 +22,7 @@ class DatabaseHelper {
 
     return await openDatabase(
       path,
-      version: 2, // Increment when modifying schema
+      version: 3, // Increment when modifying schema
       onCreate: (db, version) async {
         await db.execute('''
           CREATE TABLE users (
@@ -35,15 +35,16 @@ class DatabaseHelper {
             gender TEXT NOT NULL,
             password TEXT NOT NULL,
             isFavorite INTEGER DEFAULT 0,
+            profileImagePath TEXT,
             otp TEXT,
-            otpExpiration INTEGER
+            otpExpiration INTEGER,
+            isEmailVerified INTEGER DEFAULT 0
           )
         ''');
       },
       onUpgrade: (db, oldVersion, newVersion) async {
-        if (oldVersion < 2) {
-          await db.execute('ALTER TABLE users ADD COLUMN otp TEXT');
-          await db.execute('ALTER TABLE users ADD COLUMN otpExpiration INTEGER');
+        if (oldVersion < 3) {
+          await db.execute('ALTER TABLE users ADD COLUMN isEmailVerified INTEGER DEFAULT 0');
         }
       },
     );
@@ -153,6 +154,16 @@ class DatabaseHelper {
     await db.update(
       'users',
       {'otp': otp, 'otpExpiration': expiration},
+      where: 'email = ?',
+      whereArgs: [email],
+    );
+  }
+
+  Future<void> updateEmailVerificationStatus(String email, bool isVerified) async {
+    final db = await database;
+    await db.update(
+      'users',
+      {'isEmailVerified': isVerified ? 1 : 0},
       where: 'email = ?',
       whereArgs: [email],
     );
