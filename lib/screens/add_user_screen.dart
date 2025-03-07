@@ -100,14 +100,14 @@ class _AddUserScreenState extends State<AddUserScreen> {
   void _addUser() async {
     if (_formKey.currentState!.validate() && _selectedGender != null && _selectedCity != null) {
       if (_passwordController.text != _confirmPasswordController.text) {
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Passwords do not match')));
+        _showErrorSnackBar('Passwords do not match');
         return;
       }
 
       DateTime dob = DateFormat('dd/MM/yyyy').parse(_dobController.text);
       int age = DateTime.now().year - dob.year;
       if (age < 18) {
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Age must be 18 or above')));
+        _showErrorSnackBar('Age must be 18 or above');
         return;
       }
 
@@ -131,12 +131,44 @@ class _AddUserScreenState extends State<AddUserScreen> {
       }
 
       if (result != -1) {
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('User ${widget.user == null ? 'Added' : 'Updated'}!')));
+        _showSuccessSnackBar('User ${widget.user == null ? 'Added' : 'Updated'} Successfully!');
         Navigator.pop(context, true);
       } else {
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Failed to ${widget.user == null ? 'add' : 'update'} user.')));
+        _showErrorSnackBar('Failed to ${widget.user == null ? 'add' : 'update'} user.');
       }
     }
+  }
+
+  void _showErrorSnackBar(String message) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(
+          message,
+          style: TextStyle(fontSize: 14),
+        ),
+        backgroundColor: Colors.redAccent,
+        behavior: SnackBarBehavior.floating,
+        margin: EdgeInsets.all(20),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+        duration: Duration(seconds: 3),
+      ),
+    );
+  }
+
+  void _showSuccessSnackBar(String message) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(
+          message,
+          style: TextStyle(fontSize: 14),
+        ),
+        backgroundColor: Color(0xFF4ECDC4),
+        behavior: SnackBarBehavior.floating,
+        margin: EdgeInsets.all(20),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+        duration: Duration(seconds: 3),
+      ),
+    );
   }
 
   Future<void> _selectDate(BuildContext context) async {
@@ -147,6 +179,23 @@ class _AddUserScreenState extends State<AddUserScreen> {
           : DateTime.now().subtract(Duration(days: 365 * 18)),
       firstDate: DateTime(1900),
       lastDate: DateTime.now().subtract(Duration(days: 365 * 18)),
+      builder: (context, child) {
+        return Theme(
+          data: Theme.of(context).copyWith(
+            colorScheme: ColorScheme.light(
+              primary: Color(0xFF5D3FD3),
+              onPrimary: Colors.white,
+              onSurface: Colors.black,
+            ),
+            textButtonTheme: TextButtonThemeData(
+              style: TextButton.styleFrom(
+                foregroundColor: Color(0xFF5D3FD3),
+              ),
+            ),
+          ),
+          child: child!,
+        );
+      },
     );
     if (picked != null) {
       setState(() {
@@ -158,65 +207,33 @@ class _AddUserScreenState extends State<AddUserScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      backgroundColor: Color(0xFFF0F4F8),
       appBar: AppBar(
-        title: Text(widget.user == null ? 'Add User' : 'Edit User'),
-        backgroundColor: Colors.teal,
-      ),
-      body: Container(
-        decoration: BoxDecoration(
-          gradient: LinearGradient(
-            colors: [Colors.teal.shade200, Colors.teal.shade600],
-            begin: Alignment.topCenter,
-            end: Alignment.bottomCenter,
+        title: Text(
+          widget.user == null ? 'Add Profile' : 'Edit Profile',
+          style: TextStyle(
+            color: Colors.black87,
+            fontWeight: FontWeight.bold,
           ),
         ),
-        padding: EdgeInsets.all(16.0),
+        backgroundColor: Colors.transparent,
+        elevation: 0,
+        centerTitle: true,
+        leading: IconButton(
+          icon: Icon(Icons.arrow_back_ios, color: Colors.black87),
+          onPressed: () => Navigator.pop(context),
+        ),
+      ),
+      body: SafeArea(
         child: Form(
           key: _formKey,
           child: SingleChildScrollView(
+            physics: BouncingScrollPhysics(),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Center(
-                  child: GestureDetector(
-                    onTap: _pickImage,
-                    child: CircleAvatar(
-                      radius: 50,
-                      backgroundImage: _profileImage != null ? FileImage(_profileImage!) : null,
-                      child: _profileImage == null ? Icon(Icons.add_a_photo, size: 50) : null,
-                    ),
-                  ),
-                ),
-                SizedBox(height: 20),
-                _buildTextField(_firstNameController, 'First Name', _validateName, TextInputType.name, TextCapitalization.words),
-                _buildTextField(_lastNameController, 'Last Name', _validateName, TextInputType.name, TextCapitalization.words),
-                _buildTextField(_emailController, 'Email', (value) => RegExp(r"^[a-zA-Z0-9_.+-]+@[a-zA-Z0-9-]+\.[a-zA-Z0-9-.]+$").hasMatch(value!) ? null : 'Enter a valid email', TextInputType.emailAddress),
-                _buildPasswordField(_passwordController, 'Password', _isPasswordVisible, () {
-                  setState(() {
-                    _isPasswordVisible = !_isPasswordVisible;
-                  });
-                }),
-                _buildPasswordField(_confirmPasswordController, 'Confirm Password', _isConfirmPasswordVisible, () {
-                  setState(() {
-                    _isConfirmPasswordVisible = !_isConfirmPasswordVisible;
-                  });
-                }),
-                _buildTextField(_mobileController, 'Mobile Number', (value) => value!.length == 10 ? null : 'Enter a valid 10-digit number', TextInputType.phone, TextCapitalization.none, [FilteringTextInputFormatter.digitsOnly, LengthLimitingTextInputFormatter(10)]),
-                _buildDropdownCityField(),
-                _buildDateField(_dobController, 'Date of Birth', 'DD/MM/YYYY'),
-                _buildDropdownGenderField(),
-                SizedBox(height: 20),
-                Center(
-                  child: ElevatedButton(
-                    onPressed: _addUser,
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: Colors.lightGreenAccent,
-                      padding: EdgeInsets.symmetric(horizontal: 50, vertical: 15),
-                      textStyle: TextStyle(fontSize: 18),
-                    ),
-                    child: Text(widget.user == null ? 'Add User' : 'Update User'),
-                  ),
-                ),
+                _buildHeaderCard(),
+                _buildFormSection(),
               ],
             ),
           ),
@@ -225,114 +242,459 @@ class _AddUserScreenState extends State<AddUserScreen> {
     );
   }
 
-  Widget _buildTextField(TextEditingController controller, String labelText, String? Function(String?) validator, TextInputType keyboardType, [TextCapitalization capitalization = TextCapitalization.none, List<TextInputFormatter>? inputFormatters]) {
+  Widget _buildHeaderCard() {
+    return Container(
+      margin: EdgeInsets.fromLTRB(24, 0, 24, 24),
+      padding: EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          colors: [
+            Color(0xFF5D3FD3),
+            Color(0xFF7B68EE),
+          ],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+        borderRadius: BorderRadius.circular(25),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.purple.withOpacity(0.3),
+            blurRadius: 20,
+            offset: Offset(0, 10),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.center,
+        children: [
+          Text(
+            widget.user == null ? 'Create Your Profile' : 'Update Your Profile',
+            style: TextStyle(
+              fontSize: 24,
+              fontWeight: FontWeight.bold,
+              color: Colors.white,
+            ),
+          ),
+          SizedBox(height: 20),
+          Center(
+            child: GestureDetector(
+              onTap: _pickImage,
+              child: Stack(
+                alignment: Alignment.bottomRight,
+                children: [
+                  Container(
+                    height: 120,
+                    width: 120,
+                    decoration: BoxDecoration(
+                      color: Colors.white.withOpacity(0.2),
+                      shape: BoxShape.circle,
+                      border: Border.all(color: Colors.white, width: 4),
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.black.withOpacity(0.2),
+                          blurRadius: 10,
+                          offset: Offset(0, 5),
+                        ),
+                      ],
+                      image: _profileImage != null
+                          ? DecorationImage(
+                        image: FileImage(_profileImage!),
+                        fit: BoxFit.cover,
+                      )
+                          : null,
+                    ),
+                    child: _profileImage == null
+                        ? Icon(
+                      Icons.person,
+                      size: 60,
+                      color: Colors.white,
+                    )
+                        : null,
+                  ),
+                  Container(
+                    padding: EdgeInsets.all(8),
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      shape: BoxShape.circle,
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.black.withOpacity(0.2),
+                          blurRadius: 5,
+                          offset: Offset(0, 2),
+                        )
+                      ],
+                    ),
+                    child: Icon(
+                      Icons.camera_alt,
+                      color: Color(0xFF5D3FD3),
+                      size: 20,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+          SizedBox(height: 10),
+          Text(
+            'Upload a profile picture',
+            style: TextStyle(
+              color: Colors.white70,
+              fontSize: 14,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildFormSection() {
+    return Container(
+      margin: EdgeInsets.symmetric(horizontal: 24),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            'Personal Information',
+            style: TextStyle(
+              fontSize: 18,
+              fontWeight: FontWeight.bold,
+              color: Colors.black87,
+            ),
+          ),
+          SizedBox(height: 16),
+          Row(
+            children: [
+              Expanded(
+                child: _buildTextField(
+                  controller: _firstNameController,
+                  hinttext: 'First Name',
+                  prefixIcon: Icons.person_outline,
+                  validator: _validateName,
+                ),
+              ),
+              SizedBox(width: 12),
+              Expanded(
+                child: _buildTextField(
+                  controller: _lastNameController,
+                  hinttext: 'Last Name',
+                  prefixIcon: Icons.person_outline,
+                  validator: _validateName,
+                ),
+              ),
+            ],
+          ),
+          _buildTextField(
+            controller: _emailController,
+            hinttext: 'Email',
+            prefixIcon: Icons.email_outlined,
+            keyboardType: TextInputType.emailAddress,
+            validator: (value) => RegExp(r"^[a-zA-Z0-9_.+-]+@[a-zA-Z0-9-]+\.[a-zA-Z0-9-.]+$").hasMatch(value!)
+                ? null
+                : 'Enter a valid email',
+          ),
+          _buildTextField(
+            controller: _mobileController,
+            hinttext: 'Mobile Number',
+            prefixIcon: Icons.phone_outlined,
+            keyboardType: TextInputType.phone,
+            inputFormatters: [
+              FilteringTextInputFormatter.digitsOnly,
+              LengthLimitingTextInputFormatter(10),
+            ],
+            validator: (value) => value!.length == 10 ? null : 'Enter a valid 10-digit number',
+          ),
+          _buildDateField(
+            controller: _dobController,
+            labelText: 'Date of Birth',
+            validator: (value) => value!.isEmpty ? 'Enter date of birth' : null,
+          ),
+          _buildDropdownField(
+            hinttext: 'Gender',
+            prefixIcon: Icons.people_outline,
+            value: _selectedGender,
+            items: ['Male', 'Female', 'Other'],
+            onChanged: (value) => setState(() => _selectedGender = value),
+            validator: (value) => value == null ? 'Select gender' : null,
+          ),
+          _buildDropdownField(
+            hinttext: 'City',
+            prefixIcon: Icons.location_city_outlined,
+            value: _selectedCity,
+            items: ["Ahmedabad", "Surat", "Vadodara", "Rajkot", "Bhavnagar", "Jamnagar", "Junagadh", "Gandhinagar"],
+            onChanged: (value) => setState(() => _selectedCity = value),
+            validator: (value) => value == null ? 'Select city' : null,
+          ),
+          SizedBox(height: 24),
+          Text(
+            'Security',
+            style: TextStyle(
+              fontSize: 18,
+              fontWeight: FontWeight.bold,
+              color: Colors.black87,
+            ),
+          ),
+          SizedBox(height: 16),
+          _buildPasswordField(
+            controller: _passwordController,
+            hinttext: 'Password',
+            isVisible: _isPasswordVisible,
+            onVisibilityChanged: () => setState(() => _isPasswordVisible = !_isPasswordVisible),
+          ),
+          _buildPasswordField(
+            controller: _confirmPasswordController,
+            hinttext: 'Confirm Password',
+            isVisible: _isConfirmPasswordVisible,
+            onVisibilityChanged: () => setState(() => _isConfirmPasswordVisible = !_isConfirmPasswordVisible),
+          ),
+          SizedBox(height: 30),
+          _buildSubmitButton(),
+          SizedBox(height: 30),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildTextField({
+    required TextEditingController controller,
+    required String hinttext,
+    required IconData prefixIcon,
+    TextInputType keyboardType = TextInputType.text,
+    List<TextInputFormatter>? inputFormatters,
+    String? Function(String?)? validator,
+  }) {
     return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 8.0),
+      padding: const EdgeInsets.only(bottom: 16),
       child: TextFormField(
         controller: controller,
+        keyboardType: keyboardType,
+        inputFormatters: inputFormatters,
         decoration: InputDecoration(
-          labelText: labelText,
-          border: OutlineInputBorder(),
+          floatingLabelBehavior: FloatingLabelBehavior.always,
+          hintText: hinttext,
+          prefixIcon: Icon(prefixIcon, color: Color(0xFF5D3FD3)),
           filled: true,
-          fillColor: Colors.white.withOpacity(0.8),
-          counterText: '', // Remove character counter
+          fillColor: Colors.white,
+          border: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(15),
+            borderSide: BorderSide.none,
+          ),
+          enabledBorder: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(15),
+            borderSide: BorderSide.none,
+          ),
+          focusedBorder: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(15),
+            borderSide: BorderSide(color: Color(0xFF5D3FD3), width: 1.5),
+          ),
+          errorBorder: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(15),
+            borderSide: BorderSide(color: Colors.redAccent, width: 1.5),
+          ),
+          focusedErrorBorder: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(15),
+            borderSide: BorderSide(color: Colors.redAccent, width: 1.5),
+          ),
+          contentPadding: EdgeInsets.symmetric(vertical: 16, horizontal: 20),
+          errorStyle: TextStyle(
+            fontSize: 12,
+            color: Colors.redAccent,
+          ),
+          errorMaxLines: 3, // Allows error text to display multiple lines
         ),
         validator: validator,
-        keyboardType: keyboardType,
-        textCapitalization: capitalization,
-        inputFormatters: inputFormatters,
       ),
     );
   }
 
-  Widget _buildPasswordField(TextEditingController controller, String labelText, bool isPasswordVisible, VoidCallback onSuffixIconPressed) {
+  Widget _buildPasswordField({
+    required TextEditingController controller,
+    required String hinttext,
+    required bool isVisible,
+    required VoidCallback onVisibilityChanged,
+  }) {
     return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 8.0),
+      padding: const EdgeInsets.only(bottom: 16),
       child: TextFormField(
         controller: controller,
+        obscureText: !isVisible,
         decoration: InputDecoration(
-          labelText: labelText,
-          border: OutlineInputBorder(),
-          filled: true,
-          fillColor: Colors.white.withOpacity(0.8),
+          floatingLabelBehavior: FloatingLabelBehavior.always,
+          hintText: hinttext,
+          prefixIcon: Icon(Icons.lock_outline, color: Color(0xFF5D3FD3)),
           suffixIcon: IconButton(
-            icon: Icon(isPasswordVisible ? Icons.visibility : Icons.visibility_off),
-            onPressed: onSuffixIconPressed,
+            icon: Icon(
+              isVisible ? Icons.visibility : Icons.visibility_off,
+              color: Color(0xFF5D3FD3),
+            ),
+            onPressed: onVisibilityChanged,
           ),
-          counterText: '', // Remove character counter
+          filled: true,
+          fillColor: Colors.white,
+          border: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(15),
+            borderSide: BorderSide.none,
+          ),
+          enabledBorder: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(15),
+            borderSide: BorderSide.none,
+          ),
+          focusedBorder: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(15),
+            borderSide: BorderSide(color: Color(0xFF5D3FD3), width: 1.5),
+          ),
+          errorBorder: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(15),
+            borderSide: BorderSide(color: Colors.redAccent, width: 1.5),
+          ),
+          focusedErrorBorder: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(15),
+            borderSide: BorderSide(color: Colors.redAccent, width: 1.5),
+          ),
+          contentPadding: EdgeInsets.symmetric(vertical: 16, horizontal: 20),
+          errorStyle: TextStyle(
+            fontSize: 12,
+            color: Colors.redAccent,
+          ),
+          errorMaxLines: 3, // Allows error text to display multiple lines
         ),
         validator: _validatePassword,
-        obscureText: !isPasswordVisible,
       ),
     );
   }
 
-  Widget _buildDateField(TextEditingController controller, String labelText, String hintText) {
+  Widget _buildDateField({
+    required TextEditingController controller,
+    required String labelText,
+    required String? Function(String?)? validator,
+  }) {
     return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 8.0),
+      padding: const EdgeInsets.only(bottom: 16),
       child: TextFormField(
         controller: controller,
+        readOnly: true,
+        onTap: () => _selectDate(context),
         decoration: InputDecoration(
           labelText: labelText,
-          hintText: hintText,
-          border: OutlineInputBorder(),
+          floatingLabelBehavior: FloatingLabelBehavior.always,
+          hintText: 'DD/MM/YYYY',
+          prefixIcon: Icon(Icons.calendar_today, color: Color(0xFF5D3FD3)),
           filled: true,
-          fillColor: Colors.white.withOpacity(0.8),
-          suffixIcon: IconButton(
-            icon: Icon(Icons.calendar_today),
-            onPressed: () => _selectDate(context),
+          fillColor: Colors.white,
+          border: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(15),
+            borderSide: BorderSide.none,
           ),
-          counterText: '', // Remove character counter
+          enabledBorder: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(15),
+            borderSide: BorderSide.none,
+          ),
+          focusedBorder: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(15),
+            borderSide: BorderSide(color: Color(0xFF5D3FD3), width: 1.5),
+          ),
+          errorBorder: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(15),
+            borderSide: BorderSide(color: Colors.redAccent, width: 1.5),
+          ),
+          focusedErrorBorder: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(15),
+            borderSide: BorderSide(color: Colors.redAccent, width: 1.5),
+          ),
+          contentPadding: EdgeInsets.symmetric(vertical: 16, horizontal: 20),
+          errorStyle: TextStyle(
+            fontSize: 12,
+            color: Colors.redAccent,
+          ),
+          errorMaxLines: 2, // Allows error text to display multiple lines
         ),
-        readOnly: true,
-        validator: (value) => value!.isEmpty ? 'Enter date of birth' : null,
+        validator: validator,
       ),
     );
   }
 
-  Widget _buildDropdownCityField() {
-    final cities = ["Ahmedabad", "Surat", "Vadodara", "Rajkot", "Bhavnagar", "Jamnagar", "Junagadh", "Gandhinagar"];
-
-    // Ensure the selected city is one of the items in the list
-    if (!cities.contains(_selectedCity)) {
-      _selectedCity = null;
-    }
-
+  Widget _buildDropdownField({
+    required String hinttext,
+    required IconData prefixIcon,
+    required String? value,
+    required List<String> items,
+    required void Function(String?)? onChanged,
+    required String? Function(String?)? validator,
+  }) {
     return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 8.0),
+      padding: const EdgeInsets.only(bottom: 16),
       child: DropdownButtonFormField<String>(
-        value: _selectedCity,
-        items: cities.map((city) {
-          return DropdownMenuItem(value: city, child: Text(city));
-        }).toList(),
-        onChanged: (value) => setState(() => _selectedCity = value),
+        value: value,
         decoration: InputDecoration(
-          labelText: 'City',
-          border: OutlineInputBorder(),
+          floatingLabelBehavior: FloatingLabelBehavior.always,
+          hintText: 'Select $hinttext',
+          prefixIcon: Icon(prefixIcon, color: Color(0xFF5D3FD3)),
           filled: true,
-          fillColor: Colors.white.withOpacity(0.8),
+          fillColor: Colors.white,
+          border: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(15),
+            borderSide: BorderSide.none,
+          ),
+          enabledBorder: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(15),
+            borderSide: BorderSide.none,
+          ),
+          focusedBorder: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(15),
+            borderSide: BorderSide(color: Color(0xFF5D3FD3), width: 1.5),
+          ),
+          errorBorder: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(15),
+            borderSide: BorderSide(color: Colors.redAccent, width: 1.5),
+          ),
+          focusedErrorBorder: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(15),
+            borderSide: BorderSide(color: Colors.redAccent, width: 1.5),
+          ),
+          contentPadding: EdgeInsets.symmetric(vertical: 16, horizontal: 20),
+          errorStyle: TextStyle(
+            fontSize: 12,
+            color: Colors.redAccent,
+          ),
+          errorMaxLines: 2, // Allows error text to display multiple lines
         ),
-        validator: (value) => value == null ? 'Select city' : null,
+        items: items.map((item) {
+          return DropdownMenuItem<String>(
+            value: item,
+            child: Text(item),
+          );
+        }).toList(),
+        onChanged: onChanged,
+        validator: validator,
+        icon: Icon(Icons.arrow_drop_down, color: Color(0xFF5D3FD3)),
+        dropdownColor: Colors.white,
+        borderRadius: BorderRadius.circular(15),
+        isExpanded: true, // Makes sure the dropdown uses all available space
       ),
     );
   }
 
-  Widget _buildDropdownGenderField() {
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 8.0),
-      child: DropdownButtonFormField<String>(
-        value: _selectedGender,
-        items: ['Male', 'Female', 'Other'].map((gender) {
-          return DropdownMenuItem(value: gender, child: Text(gender));
-        }).toList(),
-        onChanged: (value) => setState(() => _selectedGender = value),
-        decoration: InputDecoration(
-          labelText: 'Gender',
-          border: OutlineInputBorder(),
-          filled: true,
-          fillColor: Colors.white.withOpacity(0.8),
+  Widget _buildSubmitButton() {
+    return Container(
+      width: double.infinity,
+      child: ElevatedButton(
+        onPressed: _addUser,
+        style: ElevatedButton.styleFrom(
+          backgroundColor: Color(0xFF5D3FD3),
+          foregroundColor: Colors.white,
+          padding: EdgeInsets.symmetric(vertical: 16),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(15),
+          ),
+          elevation: 5,
+          shadowColor: Color(0xFF5D3FD3).withOpacity(0.5),
         ),
-        validator: (value) => value == null ? 'Select gender' : null,
+        child: Text(
+          widget.user == null ? 'Create Profile' : 'Update Profile',
+          style: TextStyle(
+            fontSize: 18,
+            fontWeight: FontWeight.bold,
+          ),
+        ),
       ),
     );
   }
