@@ -49,18 +49,18 @@ class User {
 
   static User fromMap(Map<String, dynamic> map) {
     return User(
-      id: map['id'],
+      id: map['id'] != null ? int.tryParse(map['id'].toString()) : null,
       name: map['name'],
       email: map['email'],
       mobile: map['mobile'],
-      age: map['age'],
+      age: int.parse(map['age'].toString()),
       city: map['city'],
       gender: map['gender'],
       password: map['password'],
-      isFavorite: map['isFavorite'],
-      profileImagePath: map['profileImagePath'],
-      otp: map['otp'],
-      otpExpiration: map['otpExpiration'],
+      isFavorite: int.parse(map['isFavorite'].toString()),
+      profileImagePath: map['profileImagePath']?.toString(),
+      otp: map['otp']?.toString(),
+      otpExpiration: map['otpExpiration'] != null ? int.tryParse(map['otpExpiration'].toString()) : null,
       isEmailVerified: map['isEmailVerified'] == 1,
     );
   }

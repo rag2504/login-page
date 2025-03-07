@@ -2,13 +2,14 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'dart:io';
 import 'package:intl/intl.dart';
+import 'package:share_plus/share_plus.dart'; // Add this import for Share
+import 'package:font_awesome_flutter/font_awesome_flutter.dart';
+import 'package:url_launcher/url_launcher.dart';
+import 'package:flutter_spinkit/flutter_spinkit.dart';
 import '../database/database_helper.dart';
 import '../models/user_model.dart';
 import 'add_user_screen.dart';
 import 'user_detail_screen.dart';
-import 'package:font_awesome_flutter/font_awesome_flutter.dart';
-import 'package:url_launcher/url_launcher.dart';
-import 'package:share_plus/share_plus.dart';
 
 class UserListScreen extends StatefulWidget {
   @override
@@ -25,6 +26,7 @@ class _UserListScreenState extends State<UserListScreen> {
   bool _isSortedZA = false;
   int? _filterAge;
   DateTime? _filterDOB;
+  bool _isLoading = true;
 
   @override
   void initState() {
@@ -40,10 +42,14 @@ class _UserListScreenState extends State<UserListScreen> {
   }
 
   Future<void> _fetchUsers() async {
+    setState(() {
+      _isLoading = true;
+    });
     List<User> users = await _dbHelper.getUsers();
     setState(() {
       _users = users;
       _filteredUsers = users;
+      _isLoading = false;
     });
   }
 
@@ -290,7 +296,7 @@ Gender: ${user.gender}
                 title: Text('Other Sharing Options'),
                 onTap: () {
                   Navigator.of(context).pop();
-                  _showShareOptions(shareText, user);
+                  Share.share(shareText); // Use Share from share_plus package
                 },
               ),
             ],
@@ -363,7 +369,14 @@ Gender: ${user.gender}
             end: Alignment.bottomCenter,
           ),
         ),
-        child: Column(
+        child: _isLoading
+            ? Center(
+          child: SpinKitCircle(
+            color: Colors.white,
+            size: 50.0,
+          ),
+        )
+            : Column(
           children: [
             Padding(
               padding: EdgeInsets.all(10.0),

@@ -6,20 +6,13 @@ import 'screens/login_screen.dart';
 import 'database/database_helper.dart';
 import 'models/user_model.dart';
 
-void main() async {
+void main() {
   WidgetsFlutterBinding.ensureInitialized();
 
   if (kIsWeb) {
     // Web-specific initialization if needed
   } else {
     // Mobile-specific initialization if needed
-  }
-
-  try {
-    await DatabaseHelper().database; // Initialize database
-    print('Database initialized successfully');
-  } catch (e) {
-    print('Error initializing database: $e');
   }
 
   runApp(MyApp());
@@ -53,6 +46,8 @@ class MyApp extends StatelessWidget {
         builder: (context, snapshot) {
           if (snapshot.connectionState == ConnectionState.waiting) {
             return Center(child: CircularProgressIndicator());
+          } else if (snapshot.hasError) {
+            return Center(child: Text('Error: ${snapshot.error}'));
           } else {
             return snapshot.data ?? LoginScreen();
           }

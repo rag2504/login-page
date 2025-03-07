@@ -1,60 +1,62 @@
-import 'dart:io';
-import 'package:sqflite/sqflite.dart';
-import 'package:path/path.dart';
+import 'dart:convert';
+import 'package:http/http.dart' as http;
 import '../models/user_model.dart';
 
 class DatabaseHelper {
   static final DatabaseHelper _instance = DatabaseHelper._internal();
-  static Database? _database;
+  static const String apiUrl = "https://66d56529f5859a704265e791.mockapi.io/users";
 
   factory DatabaseHelper() => _instance;
 
   DatabaseHelper._internal();
 
-  Future<Database> get database async {
-    if (_database != null) return _database!;
-    _database = await _initDB();
-    return _database!;
+  Future<bool> validateUser(String email, String password) async {
+    try {
+      final response = await http.get(Uri.parse('$apiUrl?email=$email&password=$password'));
+      if (response.statusCode == 200) {
+        final List<dynamic> usersJson = jsonDecode(response.body);
+        return usersJson.isNotEmpty;
+      } else {
+        print("Error validating user: ${response.body}");
+        return false;
+      }
+    } catch (e) {
+      print("Error validating user: $e");
+      return false;
+    }
   }
 
-  Future<Database> _initDB() async {
-    String path = join(await getDatabasesPath(), 'matrimony.db');
-
-    return await openDatabase(
-      path,
-      version: 3, // Increment when modifying schema
-      onCreate: (db, version) async {
-        await db.execute('''
-          CREATE TABLE users (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            name TEXT NOT NULL,
-            email TEXT UNIQUE NOT NULL,
-            mobile TEXT NOT NULL,
-            age INTEGER NOT NULL CHECK (age >= 18),
-            city TEXT NOT NULL,
-            gender TEXT NOT NULL,
-            password TEXT NOT NULL,
-            isFavorite INTEGER DEFAULT 0,
-            profileImagePath TEXT,
-            otp TEXT,
-            otpExpiration INTEGER,
-            isEmailVerified INTEGER DEFAULT 0
-          )
-        ''');
-      },
-      onUpgrade: (db, oldVersion, newVersion) async {
-        if (oldVersion < 3) {
-          await db.execute('ALTER TABLE users ADD COLUMN isEmailVerified INTEGER DEFAULT 0');
+  Future<User?> getUserByEmail(String email) async {
+    try {
+      final response = await http.get(Uri.parse('$apiUrl?email=$email'));
+      if (response.statusCode == 200) {
+        final List<dynamic> usersJson = jsonDecode(response.body);
+        if (usersJson.isNotEmpty) {
+          return User.fromMap(usersJson.first);
         }
-      },
-    );
+      } else {
+        print("Error fetching user by email: ${response.body}");
+      }
+      return null;
+    } catch (e) {
+      print("Error fetching user by email: $e");
+      return null;
+    }
   }
 
   Future<int> insertUser(User user) async {
     try {
-      final db = await database;
-      return await db.insert('users', user.toMap(),
-          conflictAlgorithm: ConflictAlgorithm.replace);
+      final response = await http.post(
+        Uri.parse(apiUrl),
+        headers: {"Content-Type": "application/json"},
+        body: jsonEncode(user.toMap()),
+      );
+      if (response.statusCode == 201) {
+        return 1; // Success indication
+      } else {
+        print("Error inserting user: ${response.body}");
+        return -1; // Error indication
+      }
     } catch (e) {
       print("Error inserting user: $e");
       return -1; // Error indication
@@ -63,139 +65,151 @@ class DatabaseHelper {
 
   Future<int> updateUser(User user) async {
     try {
-      final db = await database;
-      return await db.update(
-        'users',
-        user.toMap(),
-        where: 'id = ?',
-        whereArgs: [user.id],
+      final response = await http.put(
+        Uri.parse('$apiUrl/${user.id}'),
+        headers: {"Content-Type": "application/json"},
+        body: jsonEncode(user.toMap()),
       );
+      if (response.statusCode == 200) {
+        return 1; // Success indication
+      } else {
+        print("Error updating user: ${response.body}");
+        return -1; // Error indication
+      }
     } catch (e) {
       print("Error updating user: $e");
-      return -1;
+      return -1; // Error indication
     }
   }
 
   Future<int> deleteUser(int id) async {
     try {
-      final db = await database;
-      return await db.delete(
-        'users',
-        where: 'id = ?',
-        whereArgs: [id],
-      );
+      final response = await http.delete(Uri.parse('$apiUrl/$id'));
+      if (response.statusCode == 200) {
+        return 1; // Success indication
+      } else {
+        print("Error deleting user: ${response.body}");
+        return -1; // Error indication
+      }
     } catch (e) {
       print("Error deleting user: $e");
-      return -1;
+      return -1; // Error indication
     }
   }
 
   Future<List<User>> getUsers() async {
-    final db = await database;
-    final results = await db.query('users');
-    return results.map((map) => User.fromMap(map)).toList();
-  }
-
-  Future<bool> validateUser(String email, String password) async {
-    final db = await database;
-    final result = await db.query(
-      'users',
-      where: 'email = ? AND password = ?',
-      whereArgs: [email, password],
-    );
-    return result.isNotEmpty;
+    try {
+      final response = await http.get(Uri.parse(apiUrl));
+      if (response.statusCode == 200) {
+        final List<dynamic> usersJson = jsonDecode(response.body);
+        return usersJson.map((json) => User.fromMap(json)).toList();
+      } else {
+        print("Error fetching users: ${response.body}");
+        return [];
+      }
+    } catch (e) {
+      print("Error fetching users: $e");
+      return [];
+    }
   }
 
   Future<List<User>> getFavoriteUsers() async {
-    final db = await database;
-    final results = await db.query(
-      'users',
-      where: 'isFavorite = ?',
-      whereArgs: [1],
-    );
-    return results.map((map) => User.fromMap(map)).toList();
+    try {
+      final response = await http.get(Uri.parse('$apiUrl?isFavorite=1'));
+      if (response.statusCode == 200) {
+        final List<dynamic> usersJson = jsonDecode(response.body);
+        return usersJson.map((json) => User.fromMap(json)).toList();
+      } else {
+        print("Error fetching favorite users: ${response.body}");
+        return [];
+      }
+    } catch (e) {
+      print("Error fetching favorite users: $e");
+      return [];
+    }
   }
 
   Future<void> toggleFavorite(int id) async {
-    final db = await database;
-    final result = await db.query(
-      'users',
-      columns: ['isFavorite'],
-      where: 'id = ?',
-      whereArgs: [id],
-    );
-
-    if (result.isNotEmpty) {
-      int newFavoriteStatus = (result.first['isFavorite'] as int) == 1 ? 0 : 1;
-      await db.update(
-        'users',
-        {'isFavorite': newFavoriteStatus},
-        where: 'id = ?',
-        whereArgs: [id],
-      );
+    try {
+      final user = await getUserById(id);
+      if (user != null) {
+        user.isFavorite = user.isFavorite == 1 ? 0 : 1;
+        await updateUser(user);
+      }
+    } catch (e) {
+      print("Error toggling favorite: $e");
     }
   }
 
-  Future<User?> getUserByEmail(String email) async {
-    final db = await database;
-    final result = await db.query(
-      'users',
-      where: 'email = ?',
-      whereArgs: [email],
-    );
-    if (result.isNotEmpty) {
-      return User.fromMap(result.first);
+  Future<User?> getUserById(int id) async {
+    try {
+      final response = await http.get(Uri.parse('$apiUrl/$id'));
+      if (response.statusCode == 200) {
+        return User.fromMap(jsonDecode(response.body));
+      } else {
+        print("Error fetching user by ID: ${response.body}");
+        return null;
+      }
+    } catch (e) {
+      print("Error fetching user by ID: $e");
+      return null;
     }
-    return null;
   }
 
   Future<void> updateOtp(String email, String otp, int expiration) async {
-    final db = await database;
-    await db.update(
-      'users',
-      {'otp': otp, 'otpExpiration': expiration},
-      where: 'email = ?',
-      whereArgs: [email],
-    );
+    try {
+      final user = await getUserByEmail(email);
+      if (user != null) {
+        user.otp = otp;
+        user.otpExpiration = expiration;
+        await updateUser(user);
+      }
+    } catch (e) {
+      print("Error updating OTP: $e");
+    }
   }
 
   Future<void> updateEmailVerificationStatus(String email, bool isVerified) async {
-    final db = await database;
-    await db.update(
-      'users',
-      {'isEmailVerified': isVerified ? 1 : 0},
-      where: 'email = ?',
-      whereArgs: [email],
-    );
+    try {
+      final user = await getUserByEmail(email);
+      if (user != null) {
+        user.isEmailVerified = isVerified;
+        await updateUser(user);
+      }
+    } catch (e) {
+      print("Error updating email verification status: $e");
+    }
   }
 
   Future<void> resetPassword(String email, String newPassword) async {
-    final db = await database;
-    await db.update(
-      'users',
-      {'password': newPassword, 'otp': null, 'otpExpiration': null},
-      where: 'email = ?',
-      whereArgs: [email],
-    );
+    try {
+      final user = await getUserByEmail(email);
+      if (user != null) {
+        user.password = newPassword;
+        user.otp = null;
+        user.otpExpiration = null;
+        await updateUser(user);
+      }
+    } catch (e) {
+      print("Error resetting password: $e");
+    }
   }
 
   Future<User?> validateOtp(String email, String otp) async {
-    final db = await database;
-    final result = await db.query(
-      'users',
-      where: 'email = ? AND otp = ? AND otpExpiration > ?',
-      whereArgs: [email, otp, DateTime.now().millisecondsSinceEpoch],
-    );
-    if (result.isNotEmpty) {
-      return User.fromMap(result.first);
-    }
-    return null;
-  }
-
-  Future<void> close() async {
-    final db = await _database;
-    if (db != null) {
-      await db.close();
+    try {
+      final response = await http.get(Uri.parse('$apiUrl?email=$email&otp=$otp&otpExpiration>${DateTime.now().millisecondsSinceEpoch}'));
+      if (response.statusCode == 200) {
+        final List<dynamic> usersJson = jsonDecode(response.body);
+        if (usersJson.isNotEmpty) {
+          return User.fromMap(usersJson.first);
+        }
+      } else {
+        print("Error validating OTP: ${response.body}");
+      }
+      return null;
+    } catch (e) {
+      print("Error validating OTP: $e");
+      return null;
     }
   }
 }
