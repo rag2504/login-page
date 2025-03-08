@@ -2,9 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'dart:io';
 import 'package:intl/intl.dart';
-import 'package:share_plus/share_plus.dart'; // Add this import for Share
+import 'package:share_plus/share_plus.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
-import 'package:url_launcher/url_launcher.dart';
 import 'package:flutter_spinkit/flutter_spinkit.dart';
 import '../database/database_helper.dart';
 import '../models/user_model.dart';
@@ -106,62 +105,92 @@ class _UserListScreenState extends State<UserListScreen> {
       context: context,
       builder: (context) {
         return AlertDialog(
-          title: Text('Filter Users'),
+          title: Text('Filter Users', style: TextStyle(fontWeight: FontWeight.bold)),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(20),
+          ),
           content: SingleChildScrollView(
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
+                _buildFilterOption(
+                  title: 'Sort by Name (A-Z)',
+                  isSelected: _isSortedAZ,
+                  onChanged: (bool? value) {
+                    _toggleSortOrderAZ();
+                    Navigator.of(context).pop();
+                  },
+                ),
+                _buildFilterOption(
+                  title: 'Sort by Name (Z-A)',
+                  isSelected: _isSortedZA,
+                  onChanged: (bool? value) {
+                    _toggleSortOrderZA();
+                    Navigator.of(context).pop();
+                  },
+                ),
+                Divider(),
                 ListTile(
-                  title: Text('Sort by Name (A-Z)'),
-                  trailing: Checkbox(
-                    value: _isSortedAZ,
-                    onChanged: (bool? value) {
-                      _toggleSortOrderAZ();
-                      Navigator.of(context).pop();
-                    },
+                  title: Text('Filter by Age (>=)',
+                      style: TextStyle(fontWeight: FontWeight.w600)),
+                  trailing: Container(
+                    padding: EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+                    decoration: BoxDecoration(
+                      color: Color(0xFFF0F4F8),
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                    child: DropdownButton<int>(
+                      value: _filterAge,
+                      hint: Text('Select'),
+                      underline: SizedBox(),
+                      items: [5, 18, 25, 30, 40, 50, 60]
+                          .map((age) => DropdownMenuItem<int>(
+                        value: age,
+                        child: Text('$age'),
+                      ))
+                          .toList(),
+                      onChanged: (int? value) {
+                        setState(() {
+                          _filterAge = value;
+                          _filterUsers();
+                          Navigator.of(context).pop();
+                        });
+                      },
+                    ),
                   ),
                 ),
                 ListTile(
-                  title: Text('Sort by Name (Z-A)'),
-                  trailing: Checkbox(
-                    value: _isSortedZA,
-                    onChanged: (bool? value) {
-                      _toggleSortOrderZA();
-                      Navigator.of(context).pop();
-                    },
-                  ),
-                ),
-                ListTile(
-                  title: Text('Filter by Age (>=)'),
-                  trailing: DropdownButton<int>(
-                    value: _filterAge,
-                    items: List.generate(100, (index) => index + 1)
-                        .map((age) => DropdownMenuItem<int>(
-                      value: age,
-                      child: Text('$age'),
-                    ))
-                        .toList(),
-                    onChanged: (int? value) {
-                      setState(() {
-                        _filterAge = value;
-                        _filterUsers();
-                        Navigator.of(context).pop();
-                      });
-                    },
-                  ),
-                ),
-                ListTile(
-                  title: Text('Filter by DOB (After)'),
+                  title: Text('Filter by DOB (After)',
+                      style: TextStyle(fontWeight: FontWeight.w600)),
                   trailing: TextButton(
-                    child: Text(_filterDOB == null
-                        ? 'Select Date'
-                        : DateFormat('dd/MM/yyyy').format(_filterDOB!)),
+                    style: TextButton.styleFrom(
+                      backgroundColor: Color(0xFFF0F4F8),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                    ),
+                    child: Text(
+                      _filterDOB == null
+                          ? 'Select Date'
+                          : DateFormat('dd/MM/yyyy').format(_filterDOB!),
+                      style: TextStyle(color: Colors.black87),
+                    ),
                     onPressed: () async {
                       DateTime? picked = await showDatePicker(
                         context: context,
                         initialDate: DateTime.now(),
                         firstDate: DateTime(1900),
                         lastDate: DateTime.now(),
+                        builder: (context, child) {
+                          return Theme(
+                            data: ThemeData.light().copyWith(
+                              colorScheme: ColorScheme.light(
+                                primary: Color(0xFF5D3FD3),
+                              ),
+                            ),
+                            child: child!,
+                          );
+                        },
                       );
                       if (picked != null) {
                         setState(() {
@@ -178,7 +207,8 @@ class _UserListScreenState extends State<UserListScreen> {
           ),
           actions: [
             TextButton(
-              child: Text('Clear Filters'),
+              child: Text('Clear Filters',
+                  style: TextStyle(color: Colors.redAccent)),
               onPressed: () {
                 setState(() {
                   _isSortedAZ = false;
@@ -191,7 +221,8 @@ class _UserListScreenState extends State<UserListScreen> {
               },
             ),
             TextButton(
-              child: Text('Close'),
+              child: Text('Apply',
+                  style: TextStyle(color: Color(0xFF5D3FD3), fontWeight: FontWeight.bold)),
               onPressed: () {
                 Navigator.of(context).pop();
               },
@@ -199,6 +230,34 @@ class _UserListScreenState extends State<UserListScreen> {
           ],
         );
       },
+    );
+  }
+
+  Widget _buildFilterOption({
+    required String title,
+    required bool isSelected,
+    required Function(bool?) onChanged,
+  }) {
+    return Container(
+      margin: EdgeInsets.symmetric(vertical: 4),
+      decoration: BoxDecoration(
+        color: isSelected ? Color(0xFF5D3FD3).withOpacity(0.1) : Colors.transparent,
+        borderRadius: BorderRadius.circular(10),
+      ),
+      child: ListTile(
+        title: Text(title, style: TextStyle(
+          fontWeight: isSelected ? FontWeight.bold : FontWeight.w600,
+          color: isSelected ? Color(0xFF5D3FD3) : Colors.black87,
+        )),
+        trailing: Checkbox(
+          value: isSelected,
+          activeColor: Color(0xFF5D3FD3),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(4),
+          ),
+          onChanged: onChanged,
+        ),
+      ),
     );
   }
 
@@ -234,15 +293,18 @@ class _UserListScreenState extends State<UserListScreen> {
         return AlertDialog(
           title: Text('Confirm Deletion'),
           content: Text('Are you sure you want to delete this user?'),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(20),
+          ),
           actions: [
             TextButton(
-              child: Text('Cancel'),
+              child: Text('Cancel', style: TextStyle(color: Colors.grey)),
               onPressed: () {
                 Navigator.of(context).pop();
               },
             ),
             TextButton(
-              child: Text('Delete'),
+              child: Text('Delete', style: TextStyle(color: Colors.redAccent)),
               onPressed: () {
                 Navigator.of(context).pop();
                 _deleteUser(userId);
@@ -274,11 +336,21 @@ Gender: ${user.gender}
       builder: (BuildContext context) {
         return AlertDialog(
           title: Text("Share ${user.name}'s Details"),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(20),
+          ),
           content: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
               ListTile(
-                leading: Icon(Icons.copy),
+                leading: Container(
+                  padding: EdgeInsets.all(8),
+                  decoration: BoxDecoration(
+                    color: Color(0xFF5D3FD3).withOpacity(0.1),
+                    shape: BoxShape.circle,
+                  ),
+                  child: Icon(Icons.copy, color: Color(0xFF5D3FD3)),
+                ),
                 title: Text('Copy to Clipboard'),
                 onTap: () {
                   Clipboard.setData(ClipboardData(text: shareText));
@@ -287,16 +359,27 @@ Gender: ${user.gender}
                     SnackBar(
                       content: Text('Contact details copied to clipboard'),
                       duration: Duration(seconds: 2),
+                      behavior: SnackBarBehavior.floating,
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(10),
+                      ),
                     ),
                   );
                 },
               ),
               ListTile(
-                leading: Icon(Icons.share),
+                leading: Container(
+                  padding: EdgeInsets.all(8),
+                  decoration: BoxDecoration(
+                    color: Color(0xFF4ECDC4).withOpacity(0.1),
+                    shape: BoxShape.circle,
+                  ),
+                  child: Icon(Icons.share, color: Color(0xFF4ECDC4)),
+                ),
                 title: Text('Other Sharing Options'),
                 onTap: () {
                   Navigator.of(context).pop();
-                  Share.share(shareText); // Use Share from share_plus package
+                  Share.share(shareText);
                 },
               ),
             ],
@@ -314,11 +397,6 @@ Gender: ${user.gender}
     );
   }
 
-  // Helper methods for sharing
-  void _showShareOptions(String text, User user) {
-    Share.share(text);
-  }
-
   void _toggleFavorite(User user) async {
     await _dbHelper.toggleFavorite(user.id!);
     setState(() {
@@ -326,8 +404,16 @@ Gender: ${user.gender}
     });
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
-        content: Text(user.isFavorite == 1 ? 'User marked as favorite!' : 'User marked as unfavorite!'),
-        duration: Duration(seconds: 2), // Reduced duration
+        content: Text(
+          user.isFavorite == 1 ? 'Added to favorites!' : 'Removed from favorites',
+          style: TextStyle(color: Colors.white),
+        ),
+        backgroundColor: user.isFavorite == 1 ? Color(0xFFFFA726) : Colors.grey[700],
+        duration: Duration(seconds: 2),
+        behavior: SnackBarBehavior.floating,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(10),
+        ),
       ),
     );
     _sortUsers();
@@ -346,179 +432,355 @@ Gender: ${user.gender}
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      backgroundColor: Color(0xFFF0F4F8),
       appBar: AppBar(
-        title: Text('User List'),
-        backgroundColor: Colors.teal,
+        elevation: 0,
+        backgroundColor: Colors.transparent,
+        title: Text(
+          'Explore Profiles',
+          style: TextStyle(
+            color: Colors.black87,
+            fontWeight: FontWeight.bold,
+          ),
+        ),
         actions: [
-          IconButton(
-            icon: Icon(Icons.filter_list),
-            onPressed: _showFilterDialog,
+          Padding(
+            padding: const EdgeInsets.only(right: 8.0),
+            child: IconButton(
+              icon: Container(
+                padding: EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  color: Color(0xFF5D3FD3).withOpacity(0.1),
+                  shape: BoxShape.circle,
+                ),
+                child: Icon(Icons.filter_list, color: Color(0xFF5D3FD3)),
+              ),
+              onPressed: _showFilterDialog,
+            ),
           ),
         ],
+        iconTheme: IconThemeData(color: Colors.black87),
       ),
       floatingActionButton: FloatingActionButton(
         child: Icon(Icons.add),
-        backgroundColor: Colors.teal,
+        backgroundColor: Color(0xFF5D3FD3),
+        elevation: 4,
         onPressed: _navigateToAddUserScreen,
       ),
-      body: Container(
-        decoration: BoxDecoration(
-          gradient: LinearGradient(
-            colors: [Colors.teal.shade200, Colors.teal.shade600],
-            begin: Alignment.topCenter,
-            end: Alignment.bottomCenter,
-          ),
+      body: _isLoading
+          ? Center(
+        child: SpinKitDoubleBounce(
+          color: Color(0xFF5D3FD3),
+          size: 50.0,
         ),
-        child: _isLoading
-            ? Center(
-          child: SpinKitCircle(
-            color: Colors.white,
-            size: 50.0,
-          ),
-        )
-            : Column(
-          children: [
-            Padding(
-              padding: EdgeInsets.all(10.0),
+      )
+          : Column(
+        children: [
+          Padding(
+            padding: EdgeInsets.fromLTRB(16, 8, 16, 16),
+            child: Container(
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(15),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withOpacity(0.05),
+                    blurRadius: 10,
+                    offset: Offset(0, 5),
+                  ),
+                ],
+              ),
               child: TextField(
                 controller: _searchController,
                 decoration: InputDecoration(
-                  labelText: 'Search by Name or City',
-                  prefixIcon: Icon(Icons.search),
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(10.0),
-                  ),
-                  filled: true,
-                  fillColor: Colors.white.withOpacity(0.8),
+                  hintText: 'Search by Name or City',
+                  prefixIcon: Icon(Icons.search, color: Colors.grey),
+                  border: InputBorder.none,
+                  contentPadding: EdgeInsets.symmetric(vertical: 15),
                 ),
               ),
             ),
-            Padding(
-              padding: EdgeInsets.symmetric(horizontal: 10.0),
-              child: Wrap(
-                alignment: WrapAlignment.center,
-                spacing: 10.0,
+          ),
+          Padding(
+            padding: EdgeInsets.symmetric(horizontal: 16),
+            child: SingleChildScrollView(
+              scrollDirection: Axis.horizontal,
+              child: Row(
                 children: [
-                  ChoiceChip(
-                    label: Text('All'),
-                    selected: _selectedGender == 'All',
-                    onSelected: (bool selected) {
-                      setState(() {
-                        _selectedGender = 'All';
-                        _filterUsers();
-                      });
-                    },
+                  _buildGenderChip('All'),
+                  SizedBox(width: 8),
+                  _buildGenderChip('Male'),
+                  SizedBox(width: 8),
+                  _buildGenderChip('Female'),
+                  SizedBox(width: 8),
+                  _buildGenderChip('Other'),
+                ],
+              ),
+            ),
+          ),
+          SizedBox(height: 16),
+          Expanded(
+            child: _filteredUsers.isEmpty
+                ? _buildEmptyState()
+                : ListView.builder(
+              padding: EdgeInsets.all(16),
+              itemCount: _filteredUsers.length,
+              itemBuilder: (context, index) {
+                User user = _filteredUsers[index];
+                return _buildUserCard(user);
+              },
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildGenderChip(String gender) {
+    bool isSelected = _selectedGender == gender;
+    return GestureDetector(
+      onTap: () {
+        setState(() {
+          _selectedGender = gender;
+          _filterUsers();
+        });
+      },
+      child: Container(
+        padding: EdgeInsets.symmetric(horizontal: 20, vertical: 10),
+        decoration: BoxDecoration(
+          color: isSelected ? Color(0xFF5D3FD3) : Colors.white,
+          borderRadius: BorderRadius.circular(30),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withOpacity(0.05),
+              blurRadius: 5,
+              offset: Offset(0, 2),
+            ),
+          ],
+        ),
+        child: Text(
+          gender,
+          style: TextStyle(
+            color: isSelected ? Colors.white : Colors.black87,
+            fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildEmptyState() {
+    return Center(
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Icon(
+            Icons.search_off,
+            size: 80,
+            color: Colors.grey.withOpacity(0.5),
+          ),
+          SizedBox(height: 16),
+          Text(
+            'No profiles found',
+            style: TextStyle(
+              fontSize: 18,
+              fontWeight: FontWeight.bold,
+              color: Colors.grey,
+            ),
+          ),
+          SizedBox(height: 8),
+          Text(
+            'Try adjusting your search or filters',
+            style: TextStyle(
+              color: Colors.grey,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildUserCard(User user) {
+    final String dobString = DateFormat('dd/MM/yyyy').format(
+        DateTime.now().subtract(Duration(days: 365 * user.age)));
+
+    return Container(
+      margin: EdgeInsets.only(bottom: 16),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(20),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.05),
+            blurRadius: 10,
+            offset: Offset(0, 5),
+          ),
+        ],
+      ),
+      child: Column(
+        children: [
+          // Profile Header
+          InkWell(
+            onTap: () => _navigateToUserDetailScreen(user),
+            child: Padding(
+              padding: const EdgeInsets.all(16.0),
+              child: Row(
+                children: [
+                  Container(
+                    width: 70,
+                    height: 70,
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.black.withOpacity(0.1),
+                          blurRadius: 10,
+                          offset: Offset(0, 5),
+                        ),
+                      ],
+                    ),
+                    child: CircleAvatar(
+                      backgroundColor: Colors.grey[200],
+                      backgroundImage: user.profileImagePath != null
+                          ? FileImage(File(user.profileImagePath!))
+                          : null,
+                      child: user.profileImagePath == null
+                          ? Icon(Icons.person, size: 40, color: Colors.grey)
+                          : null,
+                    ),
                   ),
-                  ChoiceChip(
-                    label: Text('Male'),
-                    selected: _selectedGender == 'Male',
-                    onSelected: (bool selected) {
-                      setState(() {
-                        _selectedGender = 'Male';
-                        _filterUsers();
-                      });
-                    },
+                  SizedBox(width: 16),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          children: [
+                            Text(
+                              user.name,
+                              style: TextStyle(
+                                fontSize: 18,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                            SizedBox(width: 4),
+                            if (user.isEmailVerified)
+                              Icon(Icons.verified, color: Colors.green, size: 16),
+                          ],
+                        ),
+                        SizedBox(height: 4),
+                        Text(
+                          '${user.age} years • ${user.gender}',
+                          style: TextStyle(
+                            fontSize: 14,
+                            color: Colors.grey[600],
+                          ),
+                        ),
+                        SizedBox(height: 4),
+                        Row(
+                          children: [
+                            Icon(Icons.location_on, size: 14, color: Colors.grey),
+                            SizedBox(width: 4),
+                            Text(
+                              user.city,
+                              style: TextStyle(
+                                fontSize: 14,
+                                color: Colors.grey[600],
+                              ),
+                            ),
+                          ],
+                        ),
+                      ],
+                    ),
                   ),
-                  ChoiceChip(
-                    label: Text('Female'),
-                    selected: _selectedGender == 'Female',
-                    onSelected: (bool selected) {
-                      setState(() {
-                        _selectedGender = 'Female';
-                        _filterUsers();
-                      });
-                    },
-                  ),
-                  ChoiceChip(
-                    label: Text('Other'),
-                    selected: _selectedGender == 'Other',
-                    onSelected: (bool selected) {
-                      setState(() {
-                        _selectedGender = 'Other';
-                        _filterUsers();
-                      });
-                    },
+                  IconButton(
+                    icon: Icon(
+                      user.isFavorite == 1 ? Icons.favorite : Icons.favorite_border,
+                      color: user.isFavorite == 1 ? Colors.redAccent : Colors.grey,
+                    ),
+                    onPressed: () => _toggleFavorite(user),
                   ),
                 ],
               ),
             ),
-            Expanded(
-              child: ListView.builder(
-                itemCount: _filteredUsers.length,
-                itemBuilder: (context, index) {
-                  User user = _filteredUsers[index];
-                  return Card(
-                    margin: EdgeInsets.symmetric(vertical: 5, horizontal: 10),
-                    child: ListTile(
-                      contentPadding: EdgeInsets.all(8.0),
-                      leading: CircleAvatar(
-                        backgroundImage: user.profileImagePath != null
-                            ? FileImage(File(user.profileImagePath!))
-                            : null,
-                        child: user.profileImagePath == null
-                            ? Icon(Icons.person)
-                            : null,
-                      ),
-                      title: Padding(
-                        padding: const EdgeInsets.only(bottom: 8.0),
-                        child: Row(
-                          children: [
-                            Text(user.name),
-                            SizedBox(width: 5),
-                            if (user.isEmailVerified)
-                              Icon(Icons.verified, color: Colors.green, size: 20),
-                          ],
-                        ),
-                      ),
-                      subtitle: Text(user.city),
-                      trailing: Wrap(
-                        spacing: 0, // No space between icons
-                        children: <Widget>[
-                          IconButton(
-                            icon: Icon(
-                              user.isFavorite == 1 ? Icons.favorite : Icons.favorite_border,
-                              color: user.isFavorite == 1 ? Colors.red : null,
-                            ),
-                            onPressed: () => _toggleFavorite(user),
-                          ),
+          ),
 
-                          PopupMenuButton<String>(
-                            onSelected: (String value) {
-                              switch (value) {
-                                case 'edit':
-                                  _editUser(user);
-                                  break;
-                                case 'delete':
-                                  _confirmDeleteUser(user.id!);
-                                  break;
-                                case 'share':
-                                  _shareUser(user);
-                                  break;
-                                case 'details':
-                                  _navigateToUserDetailScreen(user);
-                                  break;
-                              }
-                            },
-                            itemBuilder: (BuildContext context) {
-                              return {'Edit', 'Delete', 'Share', 'Details'}.map((String choice) {
-                                return PopupMenuItem<String>(
-                                  value: choice.toLowerCase(),
-                                  child: Text(choice),
-                                );
-                              }).toList();
-                            },
-                          ),
-                        ],
-                      ),
-                      onTap: () => _navigateToUserDetailScreen(user),
-                    ),
-                  );
-                },
+          // Actions row
+          Container(
+            padding: EdgeInsets.symmetric(horizontal: 16),
+            decoration: BoxDecoration(
+              color: Color(0xFFF8F9FA),
+              borderRadius: BorderRadius.only(
+                bottomLeft: Radius.circular(20),
+                bottomRight: Radius.circular(20),
               ),
             ),
-          ],
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+              children: [
+                _buildActionButton(
+                  icon: Icons.edit,
+                  color: Color(0xFF4ECDC4),
+                  label: 'Edit',
+                  onTap: () => _editUser(user),
+                ),
+                _buildActionDivider(),
+                _buildActionButton(
+                  icon: Icons.share,
+                  color: Color(0xFF5D3FD3),
+                  label: 'Share',
+                  onTap: () => _shareUser(user),
+                ),
+                _buildActionDivider(),
+                _buildActionButton(
+                  icon: Icons.delete,
+                  color: Colors.redAccent,
+                  label: 'Delete',
+                  onTap: () => _confirmDeleteUser(user.id!),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildActionButton({
+    required IconData icon,
+    required Color color,
+    required String label,
+    required VoidCallback onTap,
+  }) {
+    return Expanded(
+      child: InkWell(
+        onTap: onTap,
+        child: Padding(
+          padding: const EdgeInsets.symmetric(vertical: 12),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(icon, size: 18, color: color),
+              SizedBox(width: 6),
+              Text(
+                label,
+                style: TextStyle(
+                  color: color,
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
+            ],
+          ),
         ),
       ),
+    );
+  }
+
+  Widget _buildActionDivider() {
+    return Container(
+      width: 1,
+      height: 24,
+      color: Colors.grey.withOpacity(0.2),
     );
   }
 }

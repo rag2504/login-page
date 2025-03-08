@@ -3,6 +3,7 @@ import 'package:image_picker/image_picker.dart';
 import 'dart:io';
 import 'package:intl/intl.dart';
 import 'package:flutter/services.dart';
+import 'package:percent_indicator/linear_percent_indicator.dart';
 import '../database/database_helper.dart';
 import '../models/user_model.dart';
 
@@ -32,6 +33,7 @@ class _AddUserScreenState extends State<AddUserScreen> {
   bool _isPasswordVisible = false;
   bool _isConfirmPasswordVisible = false;
   File? _profileImage;
+  double _formProgress = 0.0;
 
   @override
   void initState() {
@@ -49,7 +51,17 @@ class _AddUserScreenState extends State<AddUserScreen> {
       if (widget.user!.profileImagePath != null) {
         _profileImage = File(widget.user!.profileImagePath!);
       }
+      _updateProgress();
     }
+
+    // Add listeners to all controllers to update progress
+    _firstNameController.addListener(_updateProgress);
+    _lastNameController.addListener(_updateProgress);
+    _emailController.addListener(_updateProgress);
+    _mobileController.addListener(_updateProgress);
+    _dobController.addListener(_updateProgress);
+    _passwordController.addListener(_updateProgress);
+    _confirmPasswordController.addListener(_updateProgress);
   }
 
   @override
@@ -63,6 +75,24 @@ class _AddUserScreenState extends State<AddUserScreen> {
     _confirmPasswordController.dispose();
     _cityController.dispose();
     super.dispose();
+  }
+
+  void _updateProgress() {
+    int filledFields = 0;
+    int totalFields = 8; // First name, last name, email, mobile, dob, gender, city, password
+
+    if (_firstNameController.text.isNotEmpty) filledFields++;
+    if (_lastNameController.text.isNotEmpty) filledFields++;
+    if (_emailController.text.isNotEmpty) filledFields++;
+    if (_mobileController.text.isNotEmpty) filledFields++;
+    if (_dobController.text.isNotEmpty) filledFields++;
+    if (_selectedGender != null) filledFields++;
+    if (_selectedCity != null) filledFields++;
+    if (_passwordController.text.isNotEmpty) filledFields++;
+
+    setState(() {
+      _formProgress = filledFields / totalFields;
+    });
   }
 
   String? _validateName(String? value) {
@@ -200,6 +230,7 @@ class _AddUserScreenState extends State<AddUserScreen> {
     if (picked != null) {
       setState(() {
         _dobController.text = DateFormat('dd/MM/yyyy').format(picked);
+        _updateProgress();
       });
     }
   }
@@ -232,12 +263,57 @@ class _AddUserScreenState extends State<AddUserScreen> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
+                _buildProgressBar(),
                 _buildHeaderCard(),
                 _buildFormSection(),
               ],
             ),
           ),
         ),
+      ),
+    );
+  }
+
+  Widget _buildProgressBar() {
+    return Container(
+      margin: EdgeInsets.fromLTRB(24, 0, 24, 16),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Text(
+                "Profile Completion",
+                style: TextStyle(
+                  fontSize: 14,
+                  fontWeight: FontWeight.bold,
+                  color: Colors.grey[700],
+                ),
+              ),
+              Text(
+                "${(_formProgress * 100).toInt()}%",
+                style: TextStyle(
+                  fontSize: 14,
+                  fontWeight: FontWeight.bold,
+                  color: Color(0xFFFF5252),
+                ),
+              ),
+            ],
+          ),
+          SizedBox(height: 8),
+          LinearPercentIndicator(
+            width: MediaQuery.of(context).size.width - 48,
+            lineHeight: 10.0,
+            percent: _formProgress,
+            backgroundColor: Colors.grey[200],
+            progressColor: Color(0xFFFF5252),
+            barRadius: Radius.circular(10),
+            animation: true,
+            animationDuration: 500,
+            padding: EdgeInsets.zero,
+          ),
+        ],
       ),
     );
   }
@@ -370,6 +446,7 @@ class _AddUserScreenState extends State<AddUserScreen> {
                   hinttext: 'First Name',
                   prefixIcon: Icons.person_outline,
                   validator: _validateName,
+                  textCapitalization: TextCapitalization.words,
                 ),
               ),
               SizedBox(width: 12),
@@ -379,6 +456,7 @@ class _AddUserScreenState extends State<AddUserScreen> {
                   hinttext: 'Last Name',
                   prefixIcon: Icons.person_outline,
                   validator: _validateName,
+                  textCapitalization: TextCapitalization.words,
                 ),
               ),
             ],
@@ -413,7 +491,12 @@ class _AddUserScreenState extends State<AddUserScreen> {
             prefixIcon: Icons.people_outline,
             value: _selectedGender,
             items: ['Male', 'Female', 'Other'],
-            onChanged: (value) => setState(() => _selectedGender = value),
+            onChanged: (value) {
+              setState(() {
+                _selectedGender = value;
+                _updateProgress();
+              });
+            },
             validator: (value) => value == null ? 'Select gender' : null,
           ),
           _buildDropdownField(
@@ -421,7 +504,12 @@ class _AddUserScreenState extends State<AddUserScreen> {
             prefixIcon: Icons.location_city_outlined,
             value: _selectedCity,
             items: ["Ahmedabad", "Surat", "Vadodara", "Rajkot", "Bhavnagar", "Jamnagar", "Junagadh", "Gandhinagar"],
-            onChanged: (value) => setState(() => _selectedCity = value),
+            onChanged: (value) {
+              setState(() {
+                _selectedCity = value;
+                _updateProgress();
+              });
+            },
             validator: (value) => value == null ? 'Select city' : null,
           ),
           SizedBox(height: 24),
@@ -461,6 +549,7 @@ class _AddUserScreenState extends State<AddUserScreen> {
     TextInputType keyboardType = TextInputType.text,
     List<TextInputFormatter>? inputFormatters,
     String? Function(String?)? validator,
+    TextCapitalization textCapitalization = TextCapitalization.none,
   }) {
     return Padding(
       padding: const EdgeInsets.only(bottom: 16),
@@ -468,6 +557,7 @@ class _AddUserScreenState extends State<AddUserScreen> {
         controller: controller,
         keyboardType: keyboardType,
         inputFormatters: inputFormatters,
+        textCapitalization: textCapitalization,
         decoration: InputDecoration(
           floatingLabelBehavior: FloatingLabelBehavior.always,
           hintText: hinttext,
